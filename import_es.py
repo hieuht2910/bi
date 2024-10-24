@@ -3,9 +3,14 @@ from datetime import datetime
 from elasticsearch import Elasticsearch, helpers
 
 # Connect to Elasticsearch
+# es = Elasticsearch(
+#     ['http://localhost:9200'],
+#     basic_auth=('elastic', 'changeme')
+# )
+
 es = Elasticsearch(
-    ['http://localhost:9200'],
-    basic_auth=('elastic', 'changeme')
+    ['http://192.168.200.161:9200'],
+    basic_auth=('elastic', 'hust@2024')
 )
 
 # Define the index name and mapping
