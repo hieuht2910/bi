@@ -34,7 +34,7 @@ def create_spark_session():
 def read_from_hdfs():
     """Read data directly from HDFS using docker exec."""
     try:
-        cmd = ["docker", "exec", "namenode", "hdfs", "dfs", "-cat", "/user/root/AMZN.csv"]
+        cmd = ["docker", "exec", "namenode", "hdfs", "dfs", "-cat", "/user/root/AMZN_kaggle.csv"]
         result = subprocess.run(cmd, capture_output=True, text=True)
 
         if result.returncode == 0:

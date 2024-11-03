@@ -139,7 +139,7 @@ def main():
         namenode_webhdfs_port=9870
     )
 
-    hdfs_path = "/user/root/AMZN.csv"
+    hdfs_path = "/user/root/AMZN_kaggle.csv"
     verifier.verify_file(hdfs_path)
 
 if __name__ == "__main__":

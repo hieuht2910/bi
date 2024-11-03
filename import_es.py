@@ -2,11 +2,6 @@ import csv
 from datetime import datetime
 from elasticsearch import Elasticsearch, helpers
 
-# Connect to Elasticsearch
-# es = Elasticsearch(
-#     ['http://localhost:9200'],
-#     basic_auth=('elastic', 'changeme')
-# )
 
 es = Elasticsearch(
     ['http://192.168.200.161:9200'],
@@ -69,6 +64,6 @@ def read_csv_and_index(file_path):
 
 
 # Run the function
-read_csv_and_index('AMZN.csv')
+read_csv_and_index('AMZN_kaggle.csv')
 
 print("Data indexing complete.")

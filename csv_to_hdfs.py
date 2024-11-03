@@ -197,8 +197,8 @@ def main():
         datanode_port=9864  # Use the mapped port
     )
 
-    local_file = "AMZN.csv"
-    hdfs_path = "/user/root/AMZN.csv"
+    local_file = "AMZN_kaggle.csv"
+    hdfs_path = "/user/root/AMZN_kaggle.csv"
 
     result = uploader.copy_to_hdfs(
         local_path=local_file,
