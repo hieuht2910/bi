@@ -197,20 +197,25 @@ def main():
         datanode_port=9864  # Use the mapped port
     )
 
-    local_file = "AMZN_kaggle.csv"
-    hdfs_path = "/user/root/AMZN_kaggle.csv"
+    files = [
+        "AMZN_kaggle.csv",
+        "AMZN_yfinance.csv"
+    ]
+    # local_file = "AMZN_kaggle.csv""
+    hdfs_path = f"/user/root/"
+    for file in files:
+        result = uploader.copy_to_hdfs(
+            local_path=file,
+            hdfs_path=f"{hdfs_path}{file}",
+            overwrite=True,
+            create_parent_dirs=True
+        )
+        if result:
+            print(f"Upload {file} successful!")
+        else:
+            print(f"Upload {file} failed. Check logs for details.")
 
-    result = uploader.copy_to_hdfs(
-        local_path=local_file,
-        hdfs_path=hdfs_path,
-        overwrite=True,
-        create_parent_dirs=True
-    )
 
-    if result:
-        print("Upload successful!")
-    else:
-        print("Upload failed. Check logs for details.")
 
 
 if __name__ == "__main__":

@@ -2,14 +2,18 @@ import csv
 from datetime import datetime
 from elasticsearch import Elasticsearch, helpers
 
-
 es = Elasticsearch(
-    ['http://192.168.200.161:9200'],
-    basic_auth=('elastic', 'hust@2024')
+    ['http://localhost:9200'],
+    basic_auth=('elastic', 'changeme')
 )
 
+# es = Elasticsearch(
+#     ['http://192.168.200.161:9200'],
+#     basic_auth=('elastic', 'hust@2024')
+# )
+
 # Define the index name and mapping
-index_name = 'amazon_stock'
+index_name = 'amazon_stock_1'
 mapping = {
     'mappings': {
         'properties': {
@@ -36,7 +40,8 @@ def read_csv_and_index(file_path):
         for row in reader:
             # Convert date string to datetime object
             # date = datetime.strptime(row['Date'], '%Y-%m-%d')
-
+            # formatted_date = date.strftime('%Y-%m-%d %H:%M:%S.%f')
+            # print(formatted_date)
             # Create document
             doc = {
                 '_index': index_name,
