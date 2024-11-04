@@ -25,6 +25,7 @@ def download_stock_data(ticker="AMZN", start_date="2022-03-25", end_date=None):
 
         # Download the data
         df = stock.history(start=start_date, end=end_date)
+        df['Adj Close'] = df['Close']
 
         # Just format the date to YYYY-MM-DD while keeping original timezone
         df.index = df.index.strftime('%Y-%m-%d')
@@ -55,5 +56,5 @@ if __name__ == "__main__":
     download_stock_data(
         ticker="AMZN",
         start_date="2022-03-25",
-        end_date="2024-10-31"
+        end_date="2024-11-01"
     )
