@@ -55,5 +55,5 @@ if __name__ == "__main__":
     download_stock_data(
         ticker="AMZN",
         start_date="2022-03-25",
-        end_date="2024-03-03"
+        end_date="2024-10-31"
     )
