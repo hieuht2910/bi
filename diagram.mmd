@@ -1,0 +1,15 @@
+graph LR
+    A[External CSV Sources] --> B(Download)
+    B --> C[(Hadoop)]
+    C --> D[Spark Read]
+    D --> E[Spark Processing]
+
+    subgraph Spark Processing
+        E --> F[Data Transformation]
+        E --> G[Data Aggregation]
+        F & G --> I[Spark DataFrame]
+    end
+
+    I --> K(Indexes)
+    K --> L[(Elasticsearch)]
+    L --> M[Dashboard]
