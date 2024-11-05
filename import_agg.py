@@ -275,6 +275,8 @@ def prepare_elasticsearch_data(stats_dict):
                 for key, value in record.items():
                     if pd.isna(value) or value == 'NULL':
                         processed_record[key] = None
+                    else:
+                        processed_record[key] = value
 
                 # Add period type
                 processed_record['period_type'] = period
