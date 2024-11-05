@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, DoubleType, DateType
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType, DateType, LongType
 from pyspark.sql.window import Window
 import pyspark.sql.functions as F
 import os
@@ -7,7 +7,8 @@ import subprocess
 from io import StringIO
 import pandas as pd
 from elasticsearch import Elasticsearch, helpers
-
+import pandas as pd
+from datetime import datetime, timedelta
 from import_es import publish_to_elasticsearch
 
 
@@ -35,6 +36,169 @@ def create_spark_session():
             .getOrCreate())
 
 
+def query_opensearch_data(index_name="amazon_stock_2", host='localhost', port=9200, size=10000):
+    """
+    Query data from OpenSearch and convert to DataFrame
+    """
+    try:
+        # Initialize OpenSearch client
+        es = Elasticsearch(
+            ['http://192.168.200.161:9200'],
+            basic_auth=('elastic', 'hust@2024')
+        )
+
+        # Query to get all data sorted by date
+        query = {
+            "query": {
+                "match_all": {}
+            },
+            "sort": [
+                {"Date": {"order": "desc"}}
+            ],
+            "size": size  # Adjust based on your data size
+        }
+
+        # Execute query
+        response = es.search(index=index_name, body=query)
+
+        # Extract data from response
+        hits = response['hits']['hits']
+
+        # Convert to list of dictionaries
+        data = []
+        for hit in hits:
+            source = hit['_source']
+            data.append({
+                'Date': source.get('Date'),
+                'Open': float(source.get('Open', 0)),
+                'High': float(source.get('High', 0)),
+                'Low': float(source.get('Low', 0)),
+                'Close': float(source.get('Close', 0)),
+                'Adj Close': float(source.get('Adj Close', 0)),
+                'Volume': int(source.get('Volume', 0)),
+                'AVG Price': float(source.get('AVG Price', 0)),
+                'Return': float(source.get('Return', 0)),
+                'Close Pct Change': float(source.get('Close Pct Change', 0))
+            })
+
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
+
+        # Convert Date to datetime
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        # Sort by date
+        df = df.sort_values('Date')
+
+        print(f"Retrieved {len(df)} records")
+        # print("\nDataFrame head:")
+        # print(df.head())
+        # print("\nDataFrame info:")
+        # print(df.info())
+
+        return df
+
+    except Exception as e:
+        print(f"Error querying OpenSearch: {str(e)}")
+        return None
+
+
+def query_opensearch_date_range(start_date, end_date, index_name="amazon_stock_2", host='localhost', port=9200):
+    """
+    Query data from OpenSearch for a specific date range
+    """
+    try:
+        es = Elasticsearch([{'host': host, 'port': port, 'scheme': 'http'}])
+
+        query = {
+            "query": {
+                "range": {
+                    "Date": {
+                        "gte": start_date,
+                        "lte": end_date,
+                        "format": "yyyy-MM-dd"
+                    }
+                }
+            },
+            "sort": [
+                {"Date": {"order": "asc"}}
+            ],
+            "size": 10000  # Adjust based on your needs
+        }
+
+        response = es.search(index=index_name, body=query)
+        hits = response['hits']['hits']
+
+        data = []
+        for hit in hits:
+            source = hit['_source']
+            data.append({
+                'Date': source.get('Date'),
+                'Open': float(source.get('Open', 0)),
+                'High': float(source.get('High', 0)),
+                'Low': float(source.get('Low', 0)),
+                'Close': float(source.get('Close', 0)),
+                'Adj Close': float(source.get('Adj Close', 0)),
+                'Volume': int(source.get('Volume', 0)),
+                'AVG Price': float(source.get('AVG Price', 0)),
+                'Close Pct Change': float(source.get('Close Pct Change', 0))
+            })
+
+        df = pd.DataFrame(data)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.sort_values('Date')
+
+        return df
+
+    except Exception as e:
+        print(f"Error querying OpenSearch: {str(e)}")
+        return None
+
+
+# Example usage with date range query
+def analyze_stock_data():
+    """
+    Query and analyze stock data
+    """
+    try:
+        # Get last 30 days of data
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+
+        print(f"Querying data from {start_date} to {end_date}")
+
+        # Get data from OpenSearch
+        df = query_opensearch_date_range(start_date, end_date)
+
+        if df is None or df.empty:
+            print("No data retrieved")
+            return
+
+        # Basic analysis
+        print("\nBasic Statistics:")
+        print(df.describe())
+
+        # Calculate daily returns
+        df['Daily Return'] = df['Close'].pct_change()
+
+        # Calculate moving averages
+        df['MA5'] = df['Close'].rolling(window=5).mean()
+        df['MA20'] = df['Close'].rolling(window=20).mean()
+
+        # Calculate volatility
+        df['Volatility'] = df['Daily Return'].rolling(window=20).std() * (252 ** 0.5)
+
+        print("\nAnalysis Results:")
+        print(f"Average Daily Return: {df['Daily Return'].mean():.4f}")
+        print(f"Volatility: {df['Volatility'].mean():.4f}")
+        print(f"Max Close: {df['Close'].max():.2f}")
+        print(f"Min Close: {df['Close'].min():.2f}")
+
+        return df
+
+    except Exception as e:
+        print(f"Error in analysis: {str(e)}")
+        return None
 def read_from_hdfs():
     """Read data directly from HDFS using docker exec."""
     try:
@@ -54,17 +218,6 @@ def read_from_hdfs():
 def process_data(spark, data):
     """Process the CSV data and create a Spark DataFrame."""
     try:
-        # Define schema
-        # schema = StructType([
-        #     StructField("Date", DateType(), True),
-        #     StructField("Open", DoubleType(), True),
-        #     StructField("High", DoubleType(), True),
-        #     StructField("Low", DoubleType(), True),
-        #     StructField("Close", DoubleType(), True),
-        #     StructField("Adj Close", DoubleType(), True),
-        #     StructField("Volume", DoubleType(), True)
-        # ])
-
         # Read data into pandas first
         pdf = pd.read_csv(StringIO(data))
         pdf['Date'] = pd.to_datetime(pdf['Date']).dt.date
@@ -114,17 +267,18 @@ def prepare_elasticsearch_data(stats_dict):
         for period, df in stats_dict.items():
             # Convert to pandas and round numeric columns
             pandas_df = df.toPandas()
-            numeric_cols = pandas_df.select_dtypes(include=['float64']).columns
-            pandas_df[numeric_cols] = pandas_df[numeric_cols].round(2)
 
-            # Convert to records
-            records = pandas_df.to_dict('records')
+            # Handle NULL values and convert to proper types
+            for record in pandas_df.to_dict('records'):
+                # Convert NaN and NULL to None for JSON serialization
+                processed_record = {}
+                for key, value in record.items():
+                    if pd.isna(value) or value == 'NULL':
+                        processed_record[key] = None
 
-            # Add metadata
-            for record in records:
-                record['period_type'] = period
-
-            result[f'{period}_stats'] = records
+                # Add period type
+                processed_record['period_type'] = period
+                result[f'{period}_stats'].append(processed_record)
 
         return result
 
@@ -237,19 +391,19 @@ def insert_statistics_to_elastic(stats_data):
     try:
         # Initialize Elasticsearch client
 
-        # es = Elasticsearch(
-        #     ['http://192.168.200.161:9200'],
-        #     basic_auth=('elastic', 'hust@2024')
-        # )
-
         es = Elasticsearch(
-            ['http://localhost:9200'],
-            basic_auth=('elastic', 'changeme')
+            ['http://192.168.200.161:9200'],
+            basic_auth=('elastic', 'hust@2024')
         )
+
+        # es = Elasticsearch(
+        #     ['http://localhost:9200'],
+        #     basic_auth=('elastic', 'changeme')
+        # )
 
         # Index mappings for different statistics
         mappings = {
-            'stock_monthly_stats': {
+            'amazon_stock_monthly_stats': {
                 'properties': {
                     'Month': {'type': 'date', 'format': 'yyyy-MM'},
                     'Avg_Close': {'type': 'float'},
@@ -261,7 +415,7 @@ def insert_statistics_to_elastic(stats_data):
                     'Trading_Days': {'type': 'integer'}
                 }
             },
-            'stock_quarterly_stats': {
+            'amazon_stock_quarterly_stats': {
                 'properties': {
                     'Quarter': {'type': 'keyword'},
                     'Avg_Close': {'type': 'float'},
@@ -273,7 +427,7 @@ def insert_statistics_to_elastic(stats_data):
                     'Trading_Days': {'type': 'integer'}
                 }
             },
-            'stock_yearly_stats': {
+            'amazon_stock_yearly_stats': {
                 'properties': {
                     'Year': {'type': 'integer'},
                     'Avg_Close': {'type': 'float'},
@@ -293,9 +447,9 @@ def insert_statistics_to_elastic(stats_data):
             if not es.indices.exists(index=index_name):
                 es.indices.create(index=index_name, body={'mappings': mapping})
 
-        # Insert data for each period
+        # Insert data for each zperiod
         for period, records in stats_data.items():
-            index_name = f'stock_{period}'
+            index_name = f'amazon_stock_{period}'
             actions = [
                 {
                     '_index': index_name,
@@ -328,51 +482,58 @@ def insert_statistics_to_elastic(stats_data):
 
 def main():
     try:
-        # Read data directly from HDFS
-        print("Reading data from HDFS...")
-        data = read_from_hdfs()
-
-        if data is None:
-            print("Failed to read data from HDFS")
-            return
-
         # Create Spark session
         spark = create_spark_session()
 
         # Process data
-        df = process_data(spark, data)
 
-        if df is None:
-            print("Failed to process data")
-            return
+        pandas_df = query_opensearch_data()
+        if pandas_df is not None:
+            print("\nAll Data:")
+            print(f"\nTotal number of records: {pandas_df.count()}")
+            # print(df_all.describe())
 
-        # Get total count
+        if pandas_df is not None:
+            print("\nTotal records in Pandas DataFrame:", len(pandas_df))
 
-        total_rows = df.count()
-        print(f"\nTotal number of records: {total_rows}")
+            # Define the schema for Spark DataFrame
+            schema = StructType([
+                StructField("Date", DateType(), True),
+                StructField("Open", DoubleType(), True),
+                StructField("High", DoubleType(), True),
+                StructField("Low", DoubleType(), True),
+                StructField("Close", DoubleType(), True),
+                StructField("Adj Close", DoubleType(), True),
+                StructField("Volume", LongType(), True),
+                StructField("AVG Price", DoubleType(), True),
+                StructField("Return", DoubleType(), True),
+                StructField("Close Pct Change", DoubleType(), True)
+            ])
 
-        df = transform_data(df)
+            # Convert pandas DataFrame to Spark DataFrame
+            spark_df = spark.createDataFrame(pandas_df, schema=schema)
+            print(f"\nTotal number of records: {spark_df.count()}")
 
-        # Calculate statistics
-        stats = calculate_time_statistics(df)
-        if not stats:
-            print("Failed to calculate statistics")
-            return
+            # Calculate statistics
+            stats = calculate_time_statistics(spark_df)
+            if not stats:
+                print("Failed to calculate statistics")
+                return
 
-        # Show sample of statistics
-        print("\nSample Statistics:")
-        for period, stat_df in stats.items():
-            print(f"\n{period.capitalize()} Statistics:")
-            stat_df.show(5)
+            # Show sample of statistics
+            print("\nSample Statistics:")
+            for period, stat_df in stats.items():
+                print(f"\n{period.capitalize()} Statistics:")
+                stat_df.show(5)
 
-        # Prepare data for Elasticsearch
-        es_data = prepare_elasticsearch_data(stats)
-        if not es_data:
-            print("Failed to prepare data for Elasticsearch")
-            return
+            # Prepare data for Elasticsearch
+            es_data = prepare_elasticsearch_data(stats)
+            if not es_data:
+                print("Failed to prepare data for Elasticsearch")
+                return
 
-        # Insert into Elasticsearch
-        insert_statistics_to_elastic(es_data)
+            # Insert into Elasticsearch
+            insert_statistics_to_elastic(es_data)
 
     except Exception as e:
         print(f"Error in main: {str(e)}")
