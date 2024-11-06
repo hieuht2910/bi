@@ -369,7 +369,7 @@ def analyze_data(df):
         F.round(F.sum("Volume"), 0).alias("Total_Volume")
     )
      .orderBy("Month"))
-    df_monthly_analysis.show(truncate=False)
+    df_monthly_analysis.show(n=1000, truncate=False)
 
     # print("\nPrice Movement Analysis:")
     # df = df.withColumn(
