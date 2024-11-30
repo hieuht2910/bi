@@ -1,12 +1,12 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, DoubleType, DateType
+from pyspark.sql.types import StructType, StructField, DoubleType, DateType
 import pyspark.sql.functions as F
 import os
 import subprocess
 from io import StringIO
 import pandas as pd
 
-from import_es import publish_to_elasticsearch
+from opensearch.import_es import publish_to_elasticsearch
 
 
 def create_spark_session():
